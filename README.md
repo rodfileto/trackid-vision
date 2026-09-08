@@ -18,15 +18,31 @@ Two packages:
 
 ## Runtime prerequisites
 
-Nothing here is bundled or auto-downloaded — bring your own:
+Nothing here is bundled or auto-downloaded. On Linux x86_64, CPU-only:
 
-- **ONNX model weights**: an SCRFD detector (e.g. `scrfd_10g_bnkps.onnx`)
-  and an ArcFace-style recognizer (e.g. AuraFace-v1's `glintr100.onnx`,
-  available from [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1)
-  on Hugging Face).
+```
+scripts/fetch-runtime-deps.sh
+```
+
+fetches both pieces below into `models/` and `onnxruntime-gpu/` (both
+gitignored, so this runs once per machine/container image) and verifies the
+model checksums; re-running it is a no-op once they're present. For another
+platform, a CUDA build, or after bumping `onnxruntime_go` in `go.mod`, do it
+by hand:
+
+- **ONNX model weights**: an SCRFD detector (`scrfd_10g_bnkps.onnx`) and an
+  ArcFace-style recognizer (AuraFace-v1's `glintr100.onnx`), both from
+  [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1) on Hugging
+  Face (Apache-2.0, ungated) — save them under `models/`.
 - **`libonnxruntime.so`** (or platform equivalent) — a build of
-  [ONNX Runtime](https://github.com/microsoft/onnxruntime). The CPU-only
-  build works fine; a CUDA-capable build is required if you set `UseGPU`.
+  [ONNX Runtime](https://github.com/microsoft/onnxruntime), under
+  `onnxruntime-gpu/`. `go.mod` pins `onnxruntime_go` to a version that
+  targets one specific onnxruntime C API release, not "latest" — check that
+  module's own README ("Note on onnxruntime Library Versions") for which
+  one, and use the matching release's `lib/libonnxruntime.so.<version>`
+  (the real file, not the unversioned symlink next to it) renamed to
+  `libonnxruntime.so`. The CPU-only build works fine; a CUDA-capable build
+  is required only if you set `UseGPU`.
 - **`ffmpeg`/`ffprobe`** on `$PATH` — only needed if you use `videoproc`.
 
 ## Usage
@@ -75,7 +91,8 @@ go test ./...
 
 `videoproc`'s clustering tests are pure math (synthetic embeddings, no
 model files needed). `vision`'s test is an oracle regression test against
-a real Python insightface run and needs real model files + onnxruntime
+a real Python insightface run and needs the real model files + onnxruntime
+library from "Runtime prerequisites" above (`scripts/fetch-runtime-deps.sh`)
 present locally at `../models/*.onnx` and `../onnxruntime-gpu/libonnxruntime.so`
 (relative to the `vision/` package dir) — it's skipped implicitly by not
 having those files, but will fail loudly if you run it without them.
