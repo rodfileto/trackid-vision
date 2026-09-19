@@ -1,8 +1,11 @@
 package vision
 
 import (
+	"fmt"
 	"math"
 	"sort"
+
+	ort "github.com/yalue/onnxruntime_go"
 )
 
 // Detection is one detected face before alignment/embedding.
@@ -19,6 +22,17 @@ type Detection struct {
 type Detector interface {
 	Detect(img *rgbImage) ([]Detection, error)
 	Close()
+}
+
+func newDetector(cfg Config, opts *ort.SessionOptions) (Detector, error) {
+	switch cfg.Detector {
+	case "", DetectorSCRFD:
+		return newSCRFDDetector(cfg.DetectorPath, opts)
+	case DetectorYuNet:
+		return newYuNetDetector(cfg.DetectorPath, opts)
+	default:
+		return nil, fmt.Errorf("unknown detector %q", cfg.Detector)
+	}
 }
 
 // Detect runs the configured detector.

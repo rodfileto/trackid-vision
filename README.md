@@ -30,11 +30,16 @@ model checksums; re-running it is a no-op once they're present. For another
 platform, a CUDA build, or after bumping `onnxruntime_go` in `go.mod`, do it
 by hand:
 
-- **ONNX model weights**: an SCRFD detector (`scrfd_10g_bnkps.onnx`) and an
-  ArcFace-style recognizer (AuraFace-v1's `glintr100.onnx`), both from
-  [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1) on Hugging
-  Face (ungated) — save them under `models/`. **The two files are not under
-  the same terms; see [Model licenses](#model-licenses).**
+- **ONNX model weights**, under `models/`: an ArcFace-style recognizer
+  (AuraFace-v1's `glintr100.onnx`, from
+  [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1)) and a face
+  detector: YuNet (`face_detection_yunet_2026may.onnx`, from the
+  [OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet))
+  or InsightFace's SCRFD (`scrfd_10g_bnkps.onnx`, also mirrored in the fal
+  repository). **The files are not under the same terms; see
+  [Model licenses](#model-licenses).** Pick the detector with
+  `Config.Detector` (`vision.DetectorYuNet` or `vision.DetectorSCRFD`, the
+  default for now).
 - **`libonnxruntime.so`** (or platform equivalent) — a build of
   [ONNX Runtime](https://github.com/microsoft/onnxruntime), under
   `onnxruntime-gpu/`. `go.mod` pins `onnxruntime_go` to a version that
@@ -57,7 +62,8 @@ import (
 )
 
 vis, err := vision.NewService(vision.Config{
-    DetectorPath:      "models/scrfd_10g_bnkps.onnx",
+    Detector:          vision.DetectorYuNet,
+    DetectorPath:      "models/face_detection_yunet_2026may.onnx",
     RecognizerPath:    "models/glintr100.onnx",
     SharedLibraryPath: "onnxruntime/libonnxruntime.so", // optional, has a default
     UseGPU:            false,
@@ -108,14 +114,39 @@ weights it loads are **not** covered by that licence and are not bundled.
 | File | Origin | Terms |
 |---|---|---|
 | `glintr100.onnx` (recognizer) | fal's own AuraFace-v1 weights | Apache-2.0, per the [model card](https://huggingface.co/fal/AuraFace-v1); fal states it was trained on commercially and publicly available data "to enable its usage in commercial setting" (the training data itself is not disclosed). |
+| `face_detection_yunet_2026may.onnx` (detector) | OpenCV Zoo's YuNet (Shiqi Yu), the dynamic-shape export of `face_detection_yunet_2023mar.onnx` | MIT for the model and BSD-3-Clause for its [training code](https://github.com/ShiqiYu/libfacedetection.train). It was trained on WIDER Face, whose own licence is CC BY-NC-ND; whether that reaches trained weights is unsettled, and the author states no restriction. |
 | `scrfd_10g_bnkps.onnx` (detector) | InsightFace's SCRFD, byte-identical to the one in InsightFace's `antelopev2` pack | **Non-commercial research only.** InsightFace states that its models, and models trained on its annotated data, are for [non-commercial research purposes only](https://github.com/deepinsight/insightface#license). The Apache-2.0 label on the fal repository covers fal's own weights and cannot re-license this file. |
 
 The SCRFD detector is therefore a **non-commercial dependency**. Do not use
 it in a commercial product or service without a licence from InsightFace, and
-be aware that this affects anything built on this package. `DetectorPath` is
-configurable: to avoid the restriction, supply a detector whose licence
-permits your use (it must provide the 5 facial landmarks the alignment step
-needs). Replacing the default detector is tracked as follow-up work.
+be aware that this affects anything built on this package. Use
+`vision.DetectorYuNet` to avoid it (SCRFD is still the default until the
+default is flipped). The recognizer's training data is described only as "a
+commercial dataset".
+
+### Choosing a detector
+
+Both were run on the same test image. Alignment differs slightly between
+them, so the embedding of the same face differs too (cosine 0.88 on average,
+0.80 at worst, for ~105 px faces), so do not mix detectors within one
+database. This is a smoke test on one image (6 faces), not a benchmark.
+
+SCRFD shrinks any image into a 640x640 canvas; YuNet runs at native
+resolution (long side capped at 2048), which matters for small faces in a
+large frame. With the test faces pasted into a 1920x1080 frame:
+
+| face size | SCRFD | YuNet, score 0.7 (default) | YuNet, score 0.9 |
+|---|---|---|---|
+| ~63 px | 6 / 6 | 6 / 6 | 5 / 6 |
+| ~37 px | 6 / 6 | 6 / 6 | 4 / 6 |
+| ~29 px | 6 / 6 | 6 / 6 | 3 / 6 |
+| ~21 px | 0 / 6 | 6 / 6 | 1 / 6 |
+| ~16 px | 1 / 6 | 5 / 6 | 0 / 6 |
+
+Neither detector produced a detection on 19 face-free images (wallpapers and
+screenshots, an easy negative set). Faces this small carry little identity
+information whatever the detector, so check embedding quality, not just
+recall.
 
 Verify these terms at the source before relying on them; licences and model
 cards change.

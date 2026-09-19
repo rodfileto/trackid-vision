@@ -121,3 +121,77 @@ func TestDetectAndEmbedMatchesOracle(t *testing.T) {
 			o.Bbox, bestIoU, sim, faces[bestIdx].Score, o.DetScore)
 	}
 }
+
+type yunetOracleFace struct {
+	Bbox  [4]float64    `json:"bbox"`
+	Kps   [5][2]float64 `json:"kps"`
+	Score float64       `json:"score"`
+}
+
+// TestYuNetMatchesOracle checks the Go YuNet decode against OpenCV's own
+// FaceDetectorYN (5.0.0, same 2026may weights, score 0.9, NMS 0.3, native
+// resolution) on testdata/t1.jpg (testdata/oracle_yunet_t1.json).
+func TestYuNetMatchesOracle(t *testing.T) {
+	data, err := os.ReadFile("testdata/oracle_yunet_t1.json")
+	if err != nil {
+		t.Fatalf("read oracle fixture: %v", err)
+	}
+	var oracle []yunetOracleFace
+	if err := json.Unmarshal(data, &oracle); err != nil {
+		t.Fatalf("parse oracle fixture: %v", err)
+	}
+
+	svc, err := NewService(Config{
+		Detector:          DetectorYuNet,
+		DetectorPath:      "../models/face_detection_yunet_2026may.onnx",
+		RecognizerPath:    "../models/glintr100.onnx",
+		SharedLibraryPath: "../onnxruntime-gpu/libonnxruntime.so",
+	})
+	if err != nil {
+		t.Fatalf("new vision service: %v", err)
+	}
+	defer svc.Close()
+	svc.detector.(*yunetDetector).scoreThresh = 0.9 // the threshold the oracle ran at
+
+	f, err := os.Open("testdata/t1.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	dets, err := svc.DetectFaces(f)
+	if err != nil {
+		t.Fatalf("DetectFaces: %v", err)
+	}
+	if len(dets) != len(oracle) {
+		t.Fatalf("detected %d faces, oracle found %d", len(dets), len(oracle))
+	}
+
+	used := make([]bool, len(dets))
+	for _, o := range oracle {
+		best, bestIoU := -1, 0.0
+		for i, d := range dets {
+			if used[i] {
+				continue
+			}
+			if v := iou(d.Box, o.Bbox); v > bestIoU {
+				best, bestIoU = i, v
+			}
+		}
+		if best == -1 || bestIoU < 0.95 {
+			t.Fatalf("no matching detection for oracle bbox %v (best IoU %.3f)", o.Bbox, bestIoU)
+		}
+		used[best] = true
+
+		var worst float64
+		for j := range o.Kps {
+			dx := float64(dets[best].Kps[j][0]) - o.Kps[j][0]
+			dy := float64(dets[best].Kps[j][1]) - o.Kps[j][1]
+			worst = math.Max(worst, math.Hypot(dx, dy))
+		}
+		if worst > 2 {
+			t.Errorf("bbox %v: landmark off by %.2f px, want <= 2", o.Bbox, worst)
+		}
+		t.Logf("bbox %v: IoU=%.4f worst landmark error=%.2fpx score=%.3f (oracle %.3f)",
+			o.Bbox, bestIoU, worst, dets[best].Score, o.Score)
+	}
+}

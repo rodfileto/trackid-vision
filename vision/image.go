@@ -118,3 +118,21 @@ func blobNCHW(img *rgbImage, canvasW, canvasH int, mean, std float32) []float32 
 	}
 	return out
 }
+
+// blobBGR builds a planar B,G,R float32 tensor (0-255, no normalization) of
+// canvasW x canvasH from img, zero-padded on the bottom and right -- the input
+// OpenCV's FaceDetectorYN feeds YuNet.
+func blobBGR(img *rgbImage, canvasW, canvasH int) []float32 {
+	out := make([]float32, 3*canvasH*canvasW)
+	planeSize := canvasH * canvasW
+	for y := 0; y < img.h; y++ {
+		for x := 0; x < img.w; x++ {
+			i := (y*img.w + x) * 3
+			idx := y*canvasW + x
+			out[0*planeSize+idx] = float32(img.pix[i+2])
+			out[1*planeSize+idx] = float32(img.pix[i+1])
+			out[2*planeSize+idx] = float32(img.pix[i])
+		}
+	}
+	return out
+}
