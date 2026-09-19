@@ -41,9 +41,21 @@ type Service struct {
 	recognizer *ort.DynamicAdvancedSession
 }
 
-// Config points at the two AuraFace-v1 ONNX files and, optionally, a
+// DetectorKind selects the face detector DetectorPath holds.
+type DetectorKind string
+
+const (
+	// DetectorSCRFD is InsightFace's SCRFD (the default). Its weights are
+	// licensed for non-commercial research use only.
+	DetectorSCRFD DetectorKind = "scrfd"
+	// DetectorYuNet is the OpenCV Zoo's YuNet (MIT).
+	DetectorYuNet DetectorKind = "yunet"
+)
+
+// Config points at the detector and recognizer ONNX files and, optionally, a
 // non-default onnxruntime shared library path.
 type Config struct {
+	Detector          DetectorKind // defaults to DetectorSCRFD
 	DetectorPath      string
 	RecognizerPath    string
 	SharedLibraryPath string
@@ -64,7 +76,7 @@ func NewService(cfg Config) (*Service, error) {
 	sessionOpts, cleanup := buildSessionOptions(cfg)
 	defer cleanup()
 
-	detector, err := newSCRFDDetector(cfg.DetectorPath, sessionOpts)
+	detector, err := newDetector(cfg, sessionOpts)
 	if err != nil {
 		return nil, err
 	}
