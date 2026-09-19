@@ -33,7 +33,8 @@ by hand:
 - **ONNX model weights**: an SCRFD detector (`scrfd_10g_bnkps.onnx`) and an
   ArcFace-style recognizer (AuraFace-v1's `glintr100.onnx`), both from
   [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1) on Hugging
-  Face (Apache-2.0, ungated) — save them under `models/`.
+  Face (ungated) — save them under `models/`. **The two files are not under
+  the same terms; see [Model licenses](#model-licenses).**
 - **`libonnxruntime.so`** (or platform equivalent) — a build of
   [ONNX Runtime](https://github.com/microsoft/onnxruntime), under
   `onnxruntime-gpu/`. `go.mod` pins `onnxruntime_go` to a version that
@@ -99,4 +100,22 @@ having those files, but will fail loudly if you run it without them.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+The code in this repository is MIT — see [LICENSE](LICENSE). The model
+weights it loads are **not** covered by that licence and are not bundled.
+
+### Model licenses
+
+| File | Origin | Terms |
+|---|---|---|
+| `glintr100.onnx` (recognizer) | fal's own AuraFace-v1 weights | Apache-2.0, per the [model card](https://huggingface.co/fal/AuraFace-v1); fal states it was trained on commercially and publicly available data "to enable its usage in commercial setting" (the training data itself is not disclosed). |
+| `scrfd_10g_bnkps.onnx` (detector) | InsightFace's SCRFD, byte-identical to the one in InsightFace's `antelopev2` pack | **Non-commercial research only.** InsightFace states that its models, and models trained on its annotated data, are for [non-commercial research purposes only](https://github.com/deepinsight/insightface#license). The Apache-2.0 label on the fal repository covers fal's own weights and cannot re-license this file. |
+
+The SCRFD detector is therefore a **non-commercial dependency**. Do not use
+it in a commercial product or service without a licence from InsightFace, and
+be aware that this affects anything built on this package. `DetectorPath` is
+configurable: to avoid the restriction, supply a detector whose licence
+permits your use (it must provide the 5 facial landmarks the alignment step
+needs). Replacing the default detector is tracked as follow-up work.
+
+Verify these terms at the source before relying on them; licences and model
+cards change.
