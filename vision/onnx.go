@@ -1,4 +1,4 @@
-// Package vision runs face detection (SCRFD) and face embedding (ArcFace-style
+// Package vision runs face detection (a Detector; SCRFD today) and face embedding (ArcFace-style
 // recognition, here AuraFace-v1) directly in the Go process via onnxruntime,
 // replacing the Python ML sidecar. It re-implements the pre/post-processing
 // insightface's Python FaceAnalysis does (blob construction, anchor decoding,
@@ -37,7 +37,7 @@ func ensureInitialized(sharedLibPath string) error {
 
 // Service holds the loaded detector and recognizer sessions.
 type Service struct {
-	detector   *ort.DynamicAdvancedSession
+	detector   Detector
 	recognizer *ort.DynamicAdvancedSession
 }
 
@@ -64,14 +64,9 @@ func NewService(cfg Config) (*Service, error) {
 	sessionOpts, cleanup := buildSessionOptions(cfg)
 	defer cleanup()
 
-	detector, err := ort.NewDynamicAdvancedSession(
-		cfg.DetectorPath,
-		[]string{detectorInputName},
-		detectorOutputNames,
-		sessionOpts,
-	)
+	detector, err := newSCRFDDetector(cfg.DetectorPath, sessionOpts)
 	if err != nil {
-		return nil, fmt.Errorf("load detector model: %w", err)
+		return nil, err
 	}
 
 	recognizer, err := ort.NewDynamicAdvancedSession(
@@ -81,7 +76,7 @@ func NewService(cfg Config) (*Service, error) {
 		sessionOpts,
 	)
 	if err != nil {
-		detector.Destroy()
+		detector.Close()
 		return nil, fmt.Errorf("load recognizer model: %w", err)
 	}
 
@@ -129,7 +124,7 @@ func buildSessionOptions(cfg Config) (opts *ort.SessionOptions, cleanup func()) 
 
 func (s *Service) Close() {
 	if s.detector != nil {
-		s.detector.Destroy()
+		s.detector.Close()
 	}
 	if s.recognizer != nil {
 		s.recognizer.Destroy()
