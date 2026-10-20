@@ -1,8 +1,8 @@
 # trackid-vision
 
 In-process face detection, embedding, and video-ingestion for Go, extracted
-from [TrackID](https://github.com/rodfileto/trackid). Runs SCRFD detection
-and ArcFace-style (AuraFace-v1) embedding directly in the Go process via
+from [TrackID](https://github.com/rodfileto/trackid). Runs face detection
+(YuNet by default, or SCRFD) and ArcFace-style (AuraFace-v1) embedding directly in the Go process via
 [onnxruntime](https://github.com/yalue/onnxruntime_go) — no Python sidecar.
 
 Two packages:
@@ -38,8 +38,8 @@ by hand:
   or InsightFace's SCRFD (`scrfd_10g_bnkps.onnx`, also mirrored in the fal
   repository). **The files are not under the same terms; see
   [Model licenses](#model-licenses).** Pick the detector with
-  `Config.Detector` (`vision.DetectorYuNet` or `vision.DetectorSCRFD`, the
-  default for now).
+  `Config.Detector`: `vision.DetectorYuNet` (the default, when left empty) or
+  `vision.DetectorSCRFD` (opt-in).
 - **`libonnxruntime.so`** (or platform equivalent) — a build of
   [ONNX Runtime](https://github.com/microsoft/onnxruntime), under
   `onnxruntime-gpu/`. `go.mod` pins `onnxruntime_go` to a version that
@@ -106,8 +106,10 @@ having those files, but will fail loudly if you run it without them.
 
 ## License
 
-The code in this repository is MIT — see [LICENSE](LICENSE). The model
-weights it loads are **not** covered by that licence and are not bundled.
+The code in this repository is Apache-2.0, like TrackID's — see
+[LICENSE](LICENSE); cite it with [CITATION.cff](CITATION.cff). (It was MIT
+until 2026-10-20.) The model weights it loads are **not** covered by that
+licence and are not bundled.
 
 ### Model licenses
 
@@ -119,9 +121,10 @@ weights it loads are **not** covered by that licence and are not bundled.
 
 The SCRFD detector is therefore a **non-commercial dependency**. Do not use
 it in a commercial product or service without a licence from InsightFace, and
-be aware that this affects anything built on this package. Use
-`vision.DetectorYuNet` to avoid it (SCRFD is still the default until the
-default is flipped). The recognizer's training data is described only as "a
+be aware that this affects anything built on this package. It is used only
+when asked for (`vision.DetectorSCRFD`); the default is YuNet since
+2026-10-20. A caller that left `Config.Detector` empty with an SCRFD file in
+`DetectorPath` must now set `vision.DetectorSCRFD` explicitly. The recognizer's training data is described only as "a
 commercial dataset".
 
 ### Choosing a detector
