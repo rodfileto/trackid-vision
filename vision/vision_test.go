@@ -33,6 +33,7 @@ func loadOracle(t *testing.T) []oracleFace {
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 	svc, err := NewService(Config{
+		Detector:          DetectorSCRFD, // the oracle fixture is an insightface (SCRFD) run
 		DetectorPath:      "../models/scrfd_10g_bnkps.onnx",
 		RecognizerPath:    "../models/glintr100.onnx",
 		SharedLibraryPath: "../onnxruntime-gpu/libonnxruntime.so",
@@ -131,6 +132,23 @@ type yunetOracleFace struct {
 // TestYuNetMatchesOracle checks the Go YuNet decode against OpenCV's own
 // FaceDetectorYN (5.0.0, same 2026may weights, score 0.9, NMS 0.3, native
 // resolution) on testdata/t1.jpg (testdata/oracle_yunet_t1.json).
+// TestDefaultDetectorIsYuNet: a Config that names no detector gets YuNet (MIT), never SCRFD,
+// whose weights are non-commercial.
+func TestDefaultDetectorIsYuNet(t *testing.T) {
+	svc, err := NewService(Config{
+		DetectorPath:      "../models/face_detection_yunet_2026may.onnx",
+		RecognizerPath:    "../models/glintr100.onnx",
+		SharedLibraryPath: "../onnxruntime-gpu/libonnxruntime.so",
+	})
+	if err != nil {
+		t.Fatalf("new vision service: %v", err)
+	}
+	defer svc.Close()
+	if _, ok := svc.detector.(*yunetDetector); !ok {
+		t.Fatalf("default detector = %T, want *yunetDetector", svc.detector)
+	}
+}
+
 func TestYuNetMatchesOracle(t *testing.T) {
 	data, err := os.ReadFile("testdata/oracle_yunet_t1.json")
 	if err != nil {
