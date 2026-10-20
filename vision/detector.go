@@ -26,10 +26,10 @@ type Detector interface {
 
 func newDetector(cfg Config, opts *ort.SessionOptions) (Detector, error) {
 	switch cfg.Detector {
-	case "", DetectorSCRFD:
-		return newSCRFDDetector(cfg.DetectorPath, opts)
-	case DetectorYuNet:
+	case "", DetectorYuNet:
 		return newYuNetDetector(cfg.DetectorPath, opts)
+	case DetectorSCRFD:
+		return newSCRFDDetector(cfg.DetectorPath, opts)
 	default:
 		return nil, fmt.Errorf("unknown detector %q", cfg.Detector)
 	}

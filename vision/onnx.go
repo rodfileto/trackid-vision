@@ -1,4 +1,4 @@
-// Package vision runs face detection (a Detector; SCRFD today) and face embedding (ArcFace-style
+// Package vision runs face detection (a Detector: YuNet by default, or SCRFD) and face embedding (ArcFace-style
 // recognition, here AuraFace-v1) directly in the Go process via onnxruntime,
 // replacing the Python ML sidecar. It re-implements the pre/post-processing
 // insightface's Python FaceAnalysis does (blob construction, anchor decoding,
@@ -45,17 +45,17 @@ type Service struct {
 type DetectorKind string
 
 const (
-	// DetectorSCRFD is InsightFace's SCRFD (the default). Its weights are
+	// DetectorSCRFD is InsightFace's SCRFD, opt-in. Its weights are
 	// licensed for non-commercial research use only.
 	DetectorSCRFD DetectorKind = "scrfd"
-	// DetectorYuNet is the OpenCV Zoo's YuNet (MIT).
+	// DetectorYuNet is the OpenCV Zoo's YuNet (MIT), the default.
 	DetectorYuNet DetectorKind = "yunet"
 )
 
 // Config points at the detector and recognizer ONNX files and, optionally, a
 // non-default onnxruntime shared library path.
 type Config struct {
-	Detector          DetectorKind // defaults to DetectorSCRFD
+	Detector          DetectorKind // defaults to DetectorYuNet
 	DetectorPath      string
 	RecognizerPath    string
 	SharedLibraryPath string
